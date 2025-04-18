@@ -9,9 +9,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-
-
-
 def fast_depth_region(depth_map, x, y, threshold):
     z = depth_map[y, x]
 
@@ -93,6 +90,7 @@ with mp_holistic.Holistic(
         
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
         results = holistic.process(image)
         input_batch = transform(image).to(device)
         
