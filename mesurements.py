@@ -1,6 +1,6 @@
 
 # En mètre
-SIZE = {
+BODY_SIZE = {
     
     "HEAD":{
         "NECK":0.42,
@@ -10,17 +10,22 @@ SIZE = {
     },
     
     "RIGHT_ARM":{
-        "RIGHT_WRIST":0.185,
-        "RIGHT_FORARM":0.29,
-        "RIGHT_ELBOW":0.295,
-        "RIGHT_BICEP":0.365,
+        "WRIST":0.185,
+        "FORARM":0.29,
+        "ELBOW":0.295,
+        "BICEP":0.365,
+        "SOULDER":0.45,
+        "FORARM_LENGHT":0.28,
+        "BICEP_LENGHT":0.24
     },
     
     "LEFT_ARM":{
         "WRIST":0.18,
         "FORARM":0.29,
         "ELBOW":0.29,
-        "BICEP":0.385
+        "BICEP":0.385,
+        "FORARM_LENGHT":0.29,
+        "BICEP_LENGHT":0.26
     },
     
     "TORSO":{

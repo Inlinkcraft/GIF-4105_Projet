@@ -1,11 +1,10 @@
 import torch
 import urllib.request
-import numpy as np
-
+import time
 
 def run_midas(shared):
     # Setup
-    model_type = "DPT_Hybrid"
+    model_type = "MiDaS_small"#"DPT_Hybrid"
     midas = torch.hub.load("intel-isl/MiDaS", model_type)
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     midas.to(device)
@@ -42,11 +41,11 @@ def run_midas(shared):
             depth_map = prediction.cpu().numpy()
     
             # Normalize for visualization
-            depth_min = depth_map.min()
-            depth_max = depth_map.max()
-            depth_vis = (255 * (depth_map - depth_min) / (depth_max - depth_min)).astype(np.uint8)
+            #depth_min = depth_map.min()
+            #depth_max = depth_map.max()
+            #depth_vis = (255 * (depth_map - depth_min) / (depth_max - depth_min)).astype(np.uint8)
             
             with shared.lock:
-                shared.midas_data = depth_vis
+                shared.midas_data = depth_map#depth_vis
         
         
