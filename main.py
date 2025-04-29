@@ -7,7 +7,10 @@ from shared_data import SharedData
 from mediapipe_thread import run_mediapipe
 from midas_thread import run_midas
 
-def main(debug):
+global DEBUG
+DEBUG = False
+
+def main():
     
     # Debugin tools
     mp_drawing = mp.solutions.drawing_utils
@@ -24,10 +27,15 @@ def main(debug):
     midas_thread.start()
     
     ref_t_shirt = {}
-    ref_t_shirt["image"] = cv2.imread("../Inputs/test_t.jpg")
+    ref_t_shirt["image"] = cv2.imread("../Inputs/t_turtle.jpg")
     if ref_t_shirt["image"] is None:
         print("Failed to load image.")
-    ref_t_shirt["points"] = loadpoints("../Inputs/test_t.txt")
+    ref_t_shirt["inter"] = {
+        "r": ref_t_shirt["image"][:,:,0].astype(np.float32),
+        "g": ref_t_shirt["image"][:,:,1].astype(np.float32),
+        "b": ref_t_shirt["image"][:,:,2].astype(np.float32)
+    }
+    ref_t_shirt["points"] = loadpoints("../Inputs/t_turtle.txt")
 
 
     cap = cv2.VideoCapture(0)
@@ -51,7 +59,7 @@ def main(debug):
             mp_data = shared.mediapipe_data
             midas_data = shared.midas_data
         
-        if debug == True:
+        if DEBUG == True:
             
             cv2.imshow("Ref image", cv2.resize(ref_t_shirt["image"].copy(), (int(ref_t_shirt["image"].shape[1]/4), int(ref_t_shirt["image"].shape[0]/4)))) 
             
@@ -123,4 +131,4 @@ def loadpoints(filepath):
 
     
 if __name__ == "__main__":
-    main(True)
+    main()

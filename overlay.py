@@ -3,6 +3,9 @@ import numpy as np
 import scipy as sp
 from mesurements import BODY_SIZE
 
+global DEBUG
+DEBUG = False
+
 TSHIRT_TRI_INDEX = [
     0,6,5,
     0,1,6,
@@ -124,70 +127,107 @@ def t_shirt(compose_image, t_shirt_ref, pose_landmarks, depth):
         points.extend(add_cyl_points(epaule_droite_pos, taille_droite_pos, n_points=3, angle_offset=3*np.pi/4, subdivision=[0.4, 0.6, 1]))
     
     
-    z_min = np.inf
-    z_max = -np.inf
-    for p in points:
-        if p[2] > z_max:
-            z_max = p[2]
-        if p[2] < z_min:
-            z_min = p[2]
+    if DEBUG:
+        z_min = np.inf
+        z_max = -np.inf
+        for p in points:
+            if p[2] > z_max:
+                z_max = p[2]
+            if p[2] < z_min:
+                z_min = p[2]
     
-    for i, p in enumerate(points):
-        z_norm = (p[2] - z_min) / (z_max - z_min)
-        cv2.circle(compose_image, (int(p[0]), int(p[1])), 3, [0, 0, int(255* z_norm)] , -1)
+        for i, p in enumerate(points):
+            z_norm = (p[2] - z_min) / (z_max - z_min)
+            cv2.circle(compose_image, (int(p[0]), int(p[1])), 3, [0, 0, int(255* z_norm)] , -1)
     
     if len(points) == 50:
     
         triangles_ids = np.array(TSHIRT_TRI_INDEX).reshape(-1,3)
     
-        for tri in triangles_ids:
-            p_1 = (int(points[tri[0]][0]),int(points[tri[0]][1]))
-            p_2 = (int(points[tri[1]][0]),int(points[tri[1]][1]))
-            p_3 = (int(points[tri[2]][0]),int(points[tri[2]][1]))
-            cv2.line(compose_image, p_1, p_2, [0, 255, 0], 2) 
-            cv2.line(compose_image, p_2, p_3, [0, 255, 0], 2) 
-            cv2.line(compose_image, p_3, p_1, [0, 255, 0], 2) 
-            
-        affine_transforms = getAllTransform(points, t_shirt_ref["points"], TSHIRT_TRI_INDEX)
+        if DEBUG:
+    
+            for tri in triangles_ids:
+                p_1 = (int(points[tri[0]][0]),int(points[tri[0]][1]))
+                p_2 = (int(points[tri[1]][0]),int(points[tri[1]][1]))
+                p_3 = (int(points[tri[2]][0]),int(points[tri[2]][1]))
+                cv2.line(compose_image, p_1, p_2, [0, 255, 0], 2) 
+                cv2.line(compose_image, p_2, p_3, [0, 255, 0], 2) 
+                cv2.line(compose_image, p_3, p_1, [0, 255, 0], 2) 
+
+        else:
+            affine_transforms = getAllTransform(points, t_shirt_ref["points"], TSHIRT_TRI_INDEX)
         
-        t_shirt_r = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,0])
-        t_shirt_g = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,1])
-        t_shirt_b = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,2])
+            #t_shirt_r = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,0])
+            #t_shirt_g = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,1])
+            #t_shirt_b = sp.interpolate.RectBivariateSpline(np.arange(t_shirt_ref["image"].shape[0]), np.arange(t_shirt_ref["image"].shape[1]), t_shirt_ref["image"][:,:,2])
     
-        tri_mask = np.zeros(compose_image.shape[:2], dtype = np.uint8)
-    
-        # for each triangle in triangles_ids
-        for i, tri in enumerate(triangles_ids):
-            # get the corresponding affine_transforms
-            affine_t = affine_transforms[i]
+            # for each triangle in triangles_ids
+            for i, tri in enumerate(triangles_ids):
+                # get the corresponding affine_transforms
+                affine_t = affine_transforms[i]
             
-            # get all pixel in the triangle and there position
-            tri_mask.fill(0)
+                triangle_points = np.array([
+                    [int(points[tri[0]][0]), int(points[tri[0]][1])],
+                    [int(points[tri[1]][0]), int(points[tri[1]][1])],
+                    [int(points[tri[2]][0]), int(points[tri[2]][1])]
+                ], dtype=np.int32)
             
+                # Optimisation 1:
+                min_x = np.min(triangle_points[:,0])
+                max_x = np.max(triangle_points[:,0])
+                min_y = np.min(triangle_points[:,1])
+                max_y = np.max(triangle_points[:,1])
             
-            triangle_points = np.array([
-                [int(points[tri[0]][0]), int(points[tri[0]][1])],
-                [int(points[tri[1]][0]), int(points[tri[1]][1])],
-                [int(points[tri[2]][0]), int(points[tri[2]][1])]
-            ], dtype=np.int32)
+                # Crop tri_mask to only the bounding box
+                tri_mask = np.zeros((max_y - min_y, max_x - min_x), dtype=np.uint8)
+            
+                shifted_triangle = triangle_points - [min_x, min_y]
+                cv2.fillPoly(tri_mask, [shifted_triangle], 255)
 
-            cv2.fillPoly(tri_mask, [triangle_points], 255)
+                py_local, px_local = np.where(tri_mask == 255)
+                py = py_local + min_y
+                px = px_local + min_x
+            
+                #cv2.fillPoly(tri_mask, [triangle_points], 255)
 
-            py, px = np.where(tri_mask == 255)
+                #py, px = np.where(tri_mask == 255)
             
-            pixel_pos = np.array([px, py])
+                if px.size == 0 or py.size == 0:
+                    continue
             
-            ones = np.ones((1, pixel_pos.shape[1]))
-            pixel_pos_hom = np.vstack((pixel_pos, ones))
-            pixel_pos_transformed = affine_t @ pixel_pos_hom
+                h, w = compose_image.shape[:2]
+                #valid = (px >= 0) & (px < w) & (py >= 0) & (py < h)
+                #px = px[valid]
+                #py = py[valid]
             
-            sampleR = t_shirt_r(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
-            sampleG = t_shirt_g(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
-            sampleB = t_shirt_b(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
+                pixel_pos = np.array([px, py])
             
-            compose_image[py, px, 0] = sampleR
-            compose_image[py, px, 1] = sampleG
-            compose_image[py, px, 2] = sampleB
+                ones = np.ones((1, pixel_pos.shape[1]))
+                pixel_pos_hom = np.vstack((pixel_pos, ones))
+                pixel_pos_transformed = affine_t @ pixel_pos_hom
+            
+                # Force à rester dans l'image
+                #pixel_pos_transformed[0] = np.clip(pixel_pos_transformed[0], 0, w-1)
+                #pixel_pos_transformed[1] = np.clip(pixel_pos_transformed[1], 0, h-1)
+            
+                map_x = pixel_pos_transformed[0].reshape(-1,1).astype(np.float32)
+                map_y = pixel_pos_transformed[1].reshape(-1,1).astype(np.float32)
+
+                # Sample
+                sampleR = cv2.remap(t_shirt_ref["inter"]["r"], map_x, map_y, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0).squeeze()
+                sampleG = cv2.remap(t_shirt_ref["inter"]["g"], map_x, map_y, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0).squeeze()
+                sampleB = cv2.remap(t_shirt_ref["inter"]["b"], map_x, map_y, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0).squeeze()
+            
+                #sampleR = t_shirt_r(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
+                #sampleG = t_shirt_g(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
+                #sampleB = t_shirt_b(pixel_pos_transformed[1],pixel_pos_transformed[0], grid=False)
+            
+                px = np.clip(px, 0, w-1)
+                py = np.clip(py, 0, h-1)
+            
+                compose_image[py, px, 0] = sampleR
+                compose_image[py, px, 1] = sampleG
+                compose_image[py, px, 2] = sampleB
            
             
     
@@ -196,7 +236,7 @@ def extract_3d_position(landmark, depth):
     if landmark.x > 0 and landmark.y > 0 and landmark.x < 1 and landmark.y < 1:
         x = landmark.x * depth.shape[1]
         y = landmark.y * depth.shape[0]
-        z = depth[int(x), int(y)]
+        z = depth[int(y), int(x)]
         return np.array([x, y, z])
     else:
         return None
